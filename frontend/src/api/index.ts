@@ -1,6 +1,32 @@
 import axios from 'axios'
+import { useAuthStore } from '../stores/auth'
 
 const API_BASE_URL = '/api'
+
+axios.interceptors.request.use(
+  (config) => {
+    const authStore = useAuthStore()
+    if (authStore.token) {
+      config.headers.Authorization = `Bearer ${authStore.token}`
+    }
+    return config
+  },
+  (error) => {
+    return Promise.reject(error)
+  }
+)
+
+axios.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (error.response?.status === 401) {
+      const authStore = useAuthStore()
+      authStore.logout()
+      window.location.href = '/login'
+    }
+    return Promise.reject(error)
+  }
+)
 
 export interface Page {
   index: number
@@ -61,6 +87,36 @@ export async function generateOutline(
   })
   return response.data
 }
+
+export interface LoginResponse {
+  success: boolean
+  token?: string
+  username?: string
+  error?: string
+}
+
+export async function login(username: string, password: string): Promise<LoginResponse> {
+  const response = await axios.post<LoginResponse>(`${API_BASE_URL}/login`, {
+    username,
+    password
+  })
+  return response.data
+}
+
+export interface VerifyResponse {
+  valid: boolean
+  username?: string
+}
+
+export async function verifyToken(): Promise<VerifyResponse> {
+  try {
+    const response = await axios.get<VerifyResponse>(`${API_BASE_URL}/verify`)
+    return response.data
+  } catch (error) {
+    return { valid: false }
+  }
+}
+
 
 // 获取图片 URL（新格式：task_id/filename）
 // thumbnail 参数：true=缩略图（默认），false=原图

@@ -1,5 +1,6 @@
 import logging
 import yaml
+import os
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -7,10 +8,13 @@ logger = logging.getLogger(__name__)
 
 class Config:
     DEBUG = True
-    HOST = '0.0.0.0'
+    HOST = "0.0.0.0"
     PORT = 12398
-    CORS_ORIGINS = ['http://localhost:5173', 'http://localhost:3000']
-    OUTPUT_DIR = 'output'
+    CORS_ORIGINS = ["http://localhost:5173", "http://localhost:3000"]
+    OUTPUT_DIR = "output"
+    LOGIN_USERNAME = os.getenv("LOGIN_USERNAME", "admin")
+    LOGIN_PASSWORD = os.getenv("LOGIN_PASSWORD", "admin")
+    SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 
     _image_providers_config = None
     _text_providers_config = None
@@ -20,21 +24,23 @@ class Config:
         if cls._image_providers_config is not None:
             return cls._image_providers_config
 
-        config_path = Path(__file__).parent.parent / 'image_providers.yaml'
+        config_path = Path(__file__).parent.parent / "image_providers.yaml"
         logger.debug(f"加载图片服务商配置: {config_path}")
 
         if not config_path.exists():
             logger.warning(f"图片配置文件不存在: {config_path}，使用默认配置")
             cls._image_providers_config = {
-                'active_provider': 'google_genai',
-                'providers': {}
+                "active_provider": "google_genai",
+                "providers": {},
             }
             return cls._image_providers_config
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 cls._image_providers_config = yaml.safe_load(f) or {}
-            logger.debug(f"图片配置加载成功: {list(cls._image_providers_config.get('providers', {}).keys())}")
+            logger.debug(
+                f"图片配置加载成功: {list(cls._image_providers_config.get('providers', {}).keys())}"
+            )
         except yaml.YAMLError as e:
             logger.error(f"图片配置文件 YAML 格式错误: {e}")
             raise ValueError(
@@ -54,21 +60,23 @@ class Config:
         if cls._text_providers_config is not None:
             return cls._text_providers_config
 
-        config_path = Path(__file__).parent.parent / 'text_providers.yaml'
+        config_path = Path(__file__).parent.parent / "text_providers.yaml"
         logger.debug(f"加载文本服务商配置: {config_path}")
 
         if not config_path.exists():
             logger.warning(f"文本配置文件不存在: {config_path}，使用默认配置")
             cls._text_providers_config = {
-                'active_provider': 'google_gemini',
-                'providers': {}
+                "active_provider": "google_gemini",
+                "providers": {},
             }
             return cls._text_providers_config
 
         try:
-            with open(config_path, 'r', encoding='utf-8') as f:
+            with open(config_path, "r", encoding="utf-8") as f:
                 cls._text_providers_config = yaml.safe_load(f) or {}
-            logger.debug(f"文本配置加载成功: {list(cls._text_providers_config.get('providers', {}).keys())}")
+            logger.debug(
+                f"文本配置加载成功: {list(cls._text_providers_config.get('providers', {}).keys())}"
+            )
         except yaml.YAMLError as e:
             logger.error(f"文本配置文件 YAML 格式错误: {e}")
             raise ValueError(
@@ -85,7 +93,7 @@ class Config:
     @classmethod
     def get_active_image_provider(cls):
         config = cls.load_image_providers_config()
-        active = config.get('active_provider', 'google_genai')
+        active = config.get("active_provider", "google_genai")
         logger.debug(f"当前激活的图片服务商: {active}")
         return active
 
@@ -98,7 +106,7 @@ class Config:
 
         logger.info(f"获取图片服务商配置: {provider_name}")
 
-        providers = config.get('providers', {})
+        providers = config.get("providers", {})
         if not providers:
             raise ValueError(
                 "未找到任何图片生成服务商配置。\n"
@@ -109,8 +117,10 @@ class Config:
             )
 
         if provider_name not in providers:
-            available = ', '.join(providers.keys()) if providers else '无'
-            logger.error(f"图片服务商 [{provider_name}] 不存在，可用服务商: {available}")
+            available = ", ".join(providers.keys()) if providers else "无"
+            logger.error(
+                f"图片服务商 [{provider_name}] 不存在，可用服务商: {available}"
+            )
             raise ValueError(
                 f"未找到图片生成服务商配置: {provider_name}\n"
                 f"可用的服务商: {available}\n"
@@ -123,7 +133,7 @@ class Config:
         provider_config = providers[provider_name].copy()
 
         # 验证必要字段
-        if not provider_config.get('api_key'):
+        if not provider_config.get("api_key"):
             logger.error(f"图片服务商 [{provider_name}] 未配置 API Key")
             raise ValueError(
                 f"服务商 {provider_name} 未配置 API Key\n"
@@ -132,10 +142,12 @@ class Config:
                 "2. 或手动在 image_providers.yaml 中添加 api_key 字段"
             )
 
-        provider_type = provider_config.get('type', provider_name)
-        if provider_type in ['openai', 'openai_compatible', 'image_api']:
-            if not provider_config.get('base_url'):
-                logger.error(f"服务商 [{provider_name}] 类型为 {provider_type}，但未配置 base_url")
+        provider_type = provider_config.get("type", provider_name)
+        if provider_type in ["openai", "openai_compatible", "image_api"]:
+            if not provider_config.get("base_url"):
+                logger.error(
+                    f"服务商 [{provider_name}] 类型为 {provider_type}，但未配置 base_url"
+                )
                 raise ValueError(
                     f"服务商 {provider_name} 未配置 Base URL\n"
                     f"服务商类型 {provider_type} 需要配置 base_url\n"

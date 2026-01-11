@@ -10,15 +10,17 @@ import logging
 from flask import Blueprint, request, jsonify
 from backend.services.content import get_content_service
 from .utils import log_request, log_error
+from backend.utils.auth_utils import auth_required
 
 logger = logging.getLogger(__name__)
 
 
 def create_content_blueprint():
     """创建内容生成路由蓝图（工厂函数，支持多次调用）"""
-    content_bp = Blueprint('content', __name__)
+    content_bp = Blueprint("content", __name__)
 
-    @content_bp.route('/content', methods=['POST'])
+    @content_bp.route("/content", methods=["POST"])
+    @auth_required
     def generate_content():
         """
         生成标题、文案、标签
@@ -37,25 +39,32 @@ def create_content_blueprint():
 
         try:
             data = request.get_json()
-            topic = data.get('topic', '')
-            outline = data.get('outline', '')
+            topic = data.get("topic", "")
+            outline = data.get("outline", "")
 
-            log_request('/content', {'topic': topic[:50] if topic else '', 'outline_length': len(outline)})
+            log_request(
+                "/content",
+                {"topic": topic[:50] if topic else "", "outline_length": len(outline)},
+            )
 
             # 验证必填参数
             if not topic:
                 logger.warning("内容生成请求缺少 topic 参数")
-                return jsonify({
-                    "success": False,
-                    "error": "参数错误：topic 不能为空。\n请提供主题内容。"
-                }), 400
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "参数错误：topic 不能为空。\n请提供主题内容。",
+                    }
+                ), 400
 
             if not outline:
                 logger.warning("内容生成请求缺少 outline 参数")
-                return jsonify({
-                    "success": False,
-                    "error": "参数错误：outline 不能为空。\n请先生成大纲。"
-                }), 400
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "参数错误：outline 不能为空。\n请先生成大纲。",
+                    }
+                ), 400
 
             # 调用内容生成服务
             logger.info(f"🔄 开始生成内容，主题: {topic[:50]}...")
@@ -72,11 +81,13 @@ def create_content_blueprint():
                 return jsonify(result), 500
 
         except Exception as e:
-            log_error('/content', e)
+            log_error("/content", e)
             error_msg = str(e)
-            return jsonify({
-                "success": False,
-                "error": f"内容生成异常。\n错误详情: {error_msg}\n建议：检查后端日志获取更多信息"
-            }), 500
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"内容生成异常。\n错误详情: {error_msg}\n建议：检查后端日志获取更多信息",
+                }
+            ), 500
 
     return content_bp

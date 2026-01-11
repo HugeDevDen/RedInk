@@ -11,15 +11,17 @@ import logging
 from flask import Blueprint, request, jsonify
 from backend.services.outline import get_outline_service
 from .utils import log_request, log_error
+from backend.utils.auth_utils import auth_required
 
 logger = logging.getLogger(__name__)
 
 
 def create_outline_blueprint():
     """创建大纲路由蓝图（工厂函数，支持多次调用）"""
-    outline_bp = Blueprint('outline', __name__)
+    outline_bp = Blueprint("outline", __name__)
 
-    @outline_bp.route('/outline', methods=['POST'])
+    @outline_bp.route("/outline", methods=["POST"])
+    @auth_required
     def generate_outline():
         """
         生成大纲（支持图片上传）
@@ -44,15 +46,17 @@ def create_outline_blueprint():
             # 解析请求数据
             topic, images = _parse_outline_request()
 
-            log_request('/outline', {'topic': topic, 'images': images})
+            log_request("/outline", {"topic": topic, "images": images})
 
             # 验证必填参数
             if not topic:
                 logger.warning("大纲生成请求缺少 topic 参数")
-                return jsonify({
-                    "success": False,
-                    "error": "参数错误：topic 不能为空。\n请提供要生成图文的主题内容。"
-                }), 400
+                return jsonify(
+                    {
+                        "success": False,
+                        "error": "参数错误：topic 不能为空。\n请提供要生成图文的主题内容。",
+                    }
+                ), 400
 
             # 调用大纲生成服务
             logger.info(f"🔄 开始生成大纲，主题: {topic[:50]}...")
@@ -62,19 +66,23 @@ def create_outline_blueprint():
             # 记录结果
             elapsed = time.time() - start_time
             if result["success"]:
-                logger.info(f"✅ 大纲生成成功，耗时 {elapsed:.2f}s，共 {len(result.get('pages', []))} 页")
+                logger.info(
+                    f"✅ 大纲生成成功，耗时 {elapsed:.2f}s，共 {len(result.get('pages', []))} 页"
+                )
                 return jsonify(result), 200
             else:
                 logger.error(f"❌ 大纲生成失败: {result.get('error', '未知错误')}")
                 return jsonify(result), 500
 
         except Exception as e:
-            log_error('/outline', e)
+            log_error("/outline", e)
             error_msg = str(e)
-            return jsonify({
-                "success": False,
-                "error": f"大纲生成异常。\n错误详情: {error_msg}\n建议：检查后端日志获取更多信息"
-            }), 500
+            return jsonify(
+                {
+                    "success": False,
+                    "error": f"大纲生成异常。\n错误详情: {error_msg}\n建议：检查后端日志获取更多信息",
+                }
+            ), 500
 
     return outline_bp
 
@@ -91,13 +99,13 @@ def _parse_outline_request():
         tuple: (topic, images) - 主题和图片列表
     """
     # 检查是否是 multipart/form-data（带图片文件）
-    if request.content_type and 'multipart/form-data' in request.content_type:
-        topic = request.form.get('topic')
+    if request.content_type and "multipart/form-data" in request.content_type:
+        topic = request.form.get("topic")
         images = []
 
         # 获取上传的图片文件
-        if 'images' in request.files:
-            files = request.files.getlist('images')
+        if "images" in request.files:
+            files = request.files.getlist("images")
             for file in files:
                 if file and file.filename:
                     image_data = file.read()
@@ -107,16 +115,16 @@ def _parse_outline_request():
 
     # JSON 请求（无图片或 base64 图片）
     data = request.get_json()
-    topic = data.get('topic')
+    topic = data.get("topic")
     images = []
 
     # 支持 base64 格式的图片
-    images_base64 = data.get('images', [])
+    images_base64 = data.get("images", [])
     if images_base64:
         for img_b64 in images_base64:
             # 移除可能的 data URL 前缀
-            if ',' in img_b64:
-                img_b64 = img_b64.split(',')[1]
+            if "," in img_b64:
+                img_b64 = img_b64.split(",")[1]
             images.append(base64.b64decode(img_b64))
 
     return topic, images
